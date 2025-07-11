@@ -9,8 +9,8 @@
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- SheetJS para Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.1/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS – cambiamos a Cloudflare CDN, más estable en GitHub Pages -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.1/xlsx.full.min.js" integrity="sha512-F2K/8xHgnIY7qgH8oQbIZuMwOY0cJLtB32Nolbdvfy1Yo1zmGVlLsNReYojVuRHubULXELXqMbZ7PV59ZY/T5g==" crossorigin="anonymous"></script>
   <!-- PapaParse para CSV -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <!-- html2pdf para PDF -->
@@ -132,6 +132,10 @@
 
   // ----- INIT -----
   document.addEventListener('DOMContentLoaded',()=>{
+    // Aseguramos que XLSX esté disponible antes de continuar
+    if(typeof XLSX==='undefined'){
+      console.error('SheetJS (XLSX) no se cargó correctamente. Verifica conexión o CDN.');
+    }
     loadData();
     renderAll();
     bindEvents();
@@ -161,110 +165,5 @@
     budgetData.forEach((r,i)=>tb.insertAdjacentHTML('beforeend',`
       <tr>
         <td contenteditable="${editMode}" data-t="b" data-i="${i}" data-f="concepto">${r.concepto}</td>
-        <td contenteditable="${editMode}" data-t="b" data-i="${i}" data-f="monto">${r.monto}</td>
-        <td><button class="btn btn-danger btn-sm" data-del="budget" data-i="${i}" ${!editMode?'disabled':''}>🗑️</button></td>
-      </tr>`));
-  }
-  function renderExpenseTable(){
-    const tb=document.querySelector('#expenseTable tbody');
-    tb.innerHTML='';
-    expenseData.forEach((r,i)=>tb.insertAdjacentHTML('beforeend',`
-      <tr>
-        <td contenteditable="${editMode}" data-t="e" data-i="${i}" data-f="fecha">${r.fecha}</td>
-        <td contenteditable="${editMode}" data-t="e" data-i="${i}" data-f="categoria">${r.categoria}</td>
-        <td contenteditable="${editMode}" data-t="e" data-i="${i}" data-f="descripcion">${r.descripcion}</td>
-        <td contenteditable="${editMode}" data-t="e" data-i="${i}" data-f="monto">${r.monto}</td>
-        <td><button class="btn btn-danger btn-sm" data-del="expense" data-i="${i}" ${!editMode?'disabled':''}>🗑️</button></td>
-      </tr>`));
-  }
-  function renderPivot(){
-    const pivot={};
-    expenseData.forEach(r=>{pivot[r.categoria]=(pivot[r.categoria]||0)+(+r.monto||0);});
-    const tb=document.querySelector('#pivotTable tbody');
-    tb.innerHTML='';
-    Object.entries(pivot).forEach(([k,v])=>tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td>$${v.toFixed(2)}</td></tr>`));
-    drawPie(pivot);
-  }
-  function drawPie(pivot){
-    if(pieChartInstance) pieChartInstance.destroy();
-    const ctx=document.getElementById('pieChart');
-    if(!Object.keys(pivot).length){ctx.getContext('2d').clearRect(0,0,ctx.width,ctx.height);return;}
-    pieChartInstance=new Chart(ctx,{type:'pie',data:{labels:Object.keys(pivot),datasets:[{data:Object.values(pivot)}]},options:{responsive:true,plugins:{legend:{position:'right'}}}});
-  }
-
-  // ----- SUMMARY & VALIDATION -----
-  function updateSummary(){
-    const totalB=budgetData.reduce((s,r)=>s+(+r.monto||0),0);
-    const totalE=expenseData.reduce((s,r)=>s+(+r.monto||0),0);
-    const bal=totalB-totalE;
-    const bEl=document.getElementById('balance');
-    document.getElementById('totalBudget').textContent=totalB.toFixed(2);
-    document.getElementById('totalExpenses').textContent=totalE.toFixed(2);
-    bEl.textContent=bal.toFixed(2);
-    bEl.classList.toggle('low-balance',totalB>0&&bal/totalB<0.15);
-  }
-  function validateData(){
-    const valid=!budgetData.some(r=>!r.concepto||isNaN(r.monto))&&!expenseData.some(r=>!r.categoria||isNaN(r.monto));
-    document.getElementById('validationMsg').innerHTML=valid?'<span class="valid">✅ Datos válidos</span>':'<span class="invalid">❌ Hay errores en los datos</span>';
-  }
-
-  // ----- EVENTS -----
-  function bindEvents(){
-    document.getElementById('editToggle').onclick=toggleEdit;
-    document.getElementById('addBudgetRow').onclick=()=>{if(editMode){budgetData.push({concepto:'Nuevo',monto:0});saveData();renderAll();}};
-    document.getElementById('addExpenseRow').onclick=()=>{if(editMode){expenseData.push({fecha:new Date().toISOString().slice(0,10),categoria:'General',descripcion:'',monto:0});saveData();renderAll();}};
-    document.addEventListener('click',e=>{
-      const del=e.target.closest('[data-del]');
-      if(del&&editMode){
-        const i=+del.dataset.i;
-        if(del.dataset.del==='budget') budgetData.splice(i,1); else expenseData.splice(i,1);
-        saveData();renderAll();
-      }
-    });
-    document.addEventListener('blur',e=>{
-      const td=e.target.closest('[data-f]');
-      if(td&&editMode){
-        const {t,i,f}=td.dataset; const val=td.innerText.trim();
-        const list=t==='b'?budgetData:expenseData;
-        list[i][f]=f==='monto'?parseFloat(val)||0:val;
-        saveData();updateSummary();renderPivot();validateData();
-      }
-    },true);
-    // EXCEL EXPORT
-    document.getElementById('exportBudgetExcel').onclick=()=>exportTable('budgetTable','Presupuesto');
-    document.getElementById('exportExpenseExcel').onclick=()=>exportTable('expenseTable','Gastos');
-    // IMPORT
-    document.getElementById('importBudgetBtn').onclick=()=>document.getElementById('importBudgetFile').click();
-    document.getElementById('importExpenseBtn').onclick=()=>document.getElementById('importExpenseFile').click();
-    document.getElementById('importBudgetFile').onchange=e=>handleImport(e,'budget');
-    document.getElementById('importExpenseFile').onchange=e=>handleImport(e,'expense');
-    // PDF
-    document.getElementById('downloadPDF').onclick=()=>html2pdf().set({filename:'Resumen_Financiero.pdf'}).from(document.getElementById('summaryContent')).save();
-    // RESET
-    document.getElementById('resetData').onclick=()=>{if(confirm('¿Borrar todos los datos?')){localStorage.removeItem('budgetData');localStorage.removeItem('expenseData');loadData();renderAll();}};
-  }
-  function toggleEdit(){
-    if(!editMode){const p=prompt('Contraseña'); if(p!==EDIT_PASSWORD)return;}
-    editMode=!editMode;document.getElementById('editToggle').textContent=editMode?'Bloquear Edición':'Activar Edición';renderAll();
-  }
-  // ----- EXPORT / IMPORT -----
-  function exportTable(id,name){const wb=XLSX.utils.table_to_book(document.getElementById(id),{sheet:name});XLSX.writeFile(wb,`${name}.xlsx`);}  
-  function handleImport(evt,type){
-    const file=evt.target.files[0]; if(!file)return; const ext=file.name.split('.').pop().toLowerCase(); const reader=new FileReader();
-    reader.onload=e=>{
-      let rows=[];
-      if(ext==='json'){rows=JSON.parse(e.target.result);}
-      else if(ext==='csv'){rows=Papa.parse(e.target.result,{header:true}).data;}
-      else{const wb=XLSX.read(e.target.result,{type:'binary'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);}
-      if(type==='budget') budgetData=rows.map(r=>({concepto:r.concepto||r.Concepto||'',monto:+r.monto||+r.Monto||0}));
-      else expenseData=rows.map(r=>({fecha:r.fecha||r.Fecha||'',categoria:r.categoria||r.Categoría||'',descripcion:r.descripcion||r.Descripción||'',monto:+r.monto||+r.Monto||0}));
-      saveData();renderAll();
-    };
-    if(['xls','xlsx'].includes(ext)) reader.readAsBinaryString(file); else reader.readAsText(file);
-  }
-  </script>
-
-  <!-- ============================ NOTA RÁPIDA ============================ -->
-  <!-- Cambia la contraseña editando la constante EDIT_PASSWORD arriba del script. -->
-</body>
-</html>
+        <td contenteditable="${editMode}" data-t="b" data-i
+comando completado
