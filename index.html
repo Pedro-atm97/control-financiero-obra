@@ -146,8 +146,7 @@
   <!-- ============================ SCRIPT PRINCIPAL ============================ -->
   <script>
     /* =================== CONFIGURACIÓN =================== */
-    // Cambia la contraseña en la línea siguiente. 📌 IMPORTANTE:
-    const EDIT_PASSWORD = 'ppedro'; // <== Contraseña de edición
+    const EDIT_PASSWORD = 'ppedro'; // contraseña de edición
 
     /* =================== VARIABLES GLOBALES =================== */
     let budgetData = [];   // [{concepto, monto}]
@@ -163,118 +162,39 @@
       updateAll();
     });
 
-    /* =================== FUNCIONES DE LOCALSTORAGE =================== */
+    /* =================== LOCALSTORAGE =================== */
     function loadData() {
       budgetData = JSON.parse(localStorage.getItem('budgetData')) || [];
       expenseData = JSON.parse(localStorage.getItem('expenseData')) || [];
     }
-
     function saveData() {
       localStorage.setItem('budgetData', JSON.stringify(budgetData));
       localStorage.setItem('expenseData', JSON.stringify(expenseData));
     }
 
-    /* =================== RENDERIZADO DE TABLAS =================== */
+    /* =================== RENDER TABLAS =================== */
     function renderTables() {
       renderBudgetTable();
       renderExpenseTable();
       renderPivotTable();
     }
-
     function renderBudgetTable() {
       const tbody = document.querySelector('#budgetTable tbody');
       tbody.innerHTML = '';
-      budgetData.forEach((row, idx) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td contenteditable="${editMode}" data-field="concepto" data-index="${idx}">${row.concepto}</td>
-          <td contenteditable="${editMode}" data-field="monto" data-index="${idx}">${row.monto}</td>
-          <td><button class="btn btn-sm btn-danger" data-action="deleteBudget" data-index="${idx}" ${!editMode?'disabled':''}>🗑️</button></td>`;
-        tbody.appendChild(tr);
+      budgetData.forEach((r,i)=>{
+        tbody.insertAdjacentHTML('beforeend',
+          `<tr>
+            <td contenteditable="${editMode}" data-field="concepto" data-index="${i}">${r.concepto}</td>
+            <td contenteditable="${editMode}" data-field="monto" data-index="${i}">${r.monto}</td>
+            <td><button class="btn btn-sm btn-danger" data-action="deleteBudget" data-index="${i}" ${!editMode?'disabled':''}>🗑️</button></td>
+          </tr>`);
       });
     }
-
     function renderExpenseTable() {
       const tbody = document.querySelector('#expenseTable tbody');
       tbody.innerHTML = '';
-      expenseData.forEach((row, idx) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td contenteditable="${editMode}" data-field="fecha" data-index="${idx}">${row.fecha}</td>
-          <td contenteditable="${editMode}" data-field="categoria" data-index="${idx}">${row.categoria}</td>
-          <td contenteditable="${editMode}" data-field="descripcion" data-index="${idx}">${row.descripcion}</td>
-          <td contenteditable="${editMode}" data-field="monto" data-index="${idx}">${row.monto}</td>
-          <td><button class="btn btn-sm btn-danger" data-action="deleteExpense" data-index="${idx}" ${!editMode?'disabled':''}>🗑️</button></td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    /* =================== EVENTOS GLOBALES =================== */
-    function attachEventHandlers() {
-      // Activar Edición
-      document.getElementById('editToggle').addEventListener('click', toggleEditMode);
-
-      // Agregar filas
-      document.getElementById('addBudgetRow').addEventListener('click', () => {
-        if (!editMode) return;
-        budgetData.push({ concepto: 'Nuevo Concepto', monto: 0 });
-        saveData();
-        renderBudgetTable();
-        updateAll();
-      });
-      document.getElementById('addExpenseRow').addEventListener('click', () => {
-        if (!editMode) return;
-        expenseData.push({ fecha: new Date().toISOString().slice(0,10), categoria: 'General', descripcion: 'Nuevo Gasto', monto: 0 });
-        saveData();
-        renderExpenseTable();
-        updateAll();
-      });
-
-      // Delegación de eventos para edición de celdas
-      document.addEventListener('blur', (e) => {
-        if (!editMode) return;
-        const td = e.target;
-        if (td.matches('[data-field]')) {
-          const field = td.dataset.field;
-          const index = parseInt(td.dataset.index);
-          const value = td.innerText.trim();
-          if (td.closest('#budgetTable')) {
-            if (field === 'monto') budgetData[index][field] = parseFloat(value) || 0;
-            else budgetData[index][field] = value;
-          } else if (td.closest('#expenseTable')) {
-            if (field === 'monto') expenseData[index][field] = parseFloat(value) || 0;
-            else expenseData[index][field] = value;
-          }
-          saveData();
-          updateAll();
-        }
-      }, true);
-
-      // Delegación para eliminar filas
-      document.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        const idx = parseInt(btn.dataset.index);
-        if (action === 'deleteBudget') {
-          budgetData.splice(idx,1);
-          saveData();
-          renderBudgetTable();
-          updateAll();
-        }
-        if (action === 'deleteExpense') {
-          expenseData.splice(idx,1);
-          saveData();
-          renderExpenseTable();
-          updateAll();
-        }
-      });
-
-      // Exportar tablas a Excel
-      document.getElementById('exportBudgetExcel').addEventListener('click', () => exportTableToExcel('budgetTable', 'Presupuesto'));
-      document.getElementById('exportExpenseExcel').addEventListener('click', () => exportTableToExcel('expenseTable', 'Gastos'));
-
-      // Importar archivos
-      document.getElementById('importBudgetBtn').addEventListener('click', () => document.getElementById('importBudgetFile').click());
-      document.getElementById('importExpenseBtn').addEventListener('click', () => document.getElementById('importExpenseFile').click());
-      document.getElementById('importBudget
+      expenseData.forEach((r,i)=>{
+        tbody.insertAdjacentHTML('beforeend',
+          `<tr>
+            <td contenteditable="${editMode}" data-field="fecha" data-index="${i}">${r.fecha}</td>
+            <td contenteditable="
